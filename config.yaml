@@ -1,0 +1,32 @@
+# Tenagari configuration. Edit freely; no code changes needed.
+
+llm:
+  model: qwen2.5:7b        # switch to qwen2.5:14b for better quality (slower)
+  temperature: 0.3
+  max_retries: 1           # extra attempts after invalid JSON
+
+stt:
+  model: base.en           # faster-whisper model: tiny.en, base.en, small.en, small
+
+tts:
+  engine: say              # macOS `say` for v1; piper/kokoro later
+  voice: Samantha
+
+session:                   # minutes per section
+  warmup: 2
+  speaking: 5
+  listening: 3
+  reading_writing: 5
+  quiz: 3
+
+topics:
+  - technology
+  - artificial intelligence
+  - football
+  - Ethiopia
+  - job interviews
+  - everyday life in the US
+  - health and fitness
+  - travel
+  - food and cooking
+  - money and personal finance
