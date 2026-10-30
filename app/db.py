@@ -1,5 +1,6 @@
 """SQLite setup and queries."""
 
+import json
 import os
 import sqlite3
 from collections.abc import Iterator
@@ -8,7 +9,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from app.config import ROOT
-from app.schemas import Correction, ReadingText
+from app.schemas import CheckedItem, Correction, ReadingText
 
 DB_PATH = Path(os.environ.get("TENAGARI_DB", ROOT / "data" / "app.db"))  # env override for testing
 RETIRE_AFTER = 3  # correct uses before a word counts as learned
@@ -34,11 +35,29 @@ CREATE TABLE IF NOT EXISTS words (
     retired              INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS quiz_results (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    date           TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    kind           TEXT NOT NULL,
+    question       TEXT NOT NULL,
+    user_answer    TEXT NOT NULL,
+    correct_answer TEXT NOT NULL,
+    is_correct     INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS recordings (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
     path TEXT NOT NULL,
     kind TEXT NOT NULL  -- placement, daily, final
+);
+
+-- Checked quiz items generated ahead of time (JSON list of QuizItem).
+CREATE TABLE IF NOT EXISTS quiz_queue (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    created TEXT NOT NULL,
+    items   TEXT NOT NULL
 );
 
 -- Reading texts generated ahead of time so a session starts instantly.
@@ -102,12 +121,31 @@ def top_mistake_categories(days: int = 7, limit: int = 3, path: Path = DB_PATH) 
     return [(r["category"], r["n"]) for r in rows]
 
 
-def latest_mistake(category: str, path: Path = DB_PATH) -> sqlite3.Row | None:
-    """The most recent mistake in a category (to show as an example)."""
+def recent_mistakes(category: str, limit: int = 1, path: Path = DB_PATH) -> list[sqlite3.Row]:
+    """The most recent mistakes in a category, newest first."""
     with open_db(path) as conn:
         return conn.execute(
-            "SELECT * FROM mistakes WHERE category = ? ORDER BY id DESC LIMIT 1", (category,)
-        ).fetchone()
+            "SELECT * FROM mistakes WHERE category = ? ORDER BY id DESC LIMIT ?", (category, limit)
+        ).fetchall()
+
+
+def latest_mistake(category: str, path: Path = DB_PATH) -> sqlite3.Row | None:
+    """The most recent mistake in a category (to show as an example)."""
+    rows = recent_mistakes(category, limit=1, path=path)
+    return rows[0] if rows else None
+
+
+# --- Quiz -------------------------------------------------------------------
+
+def save_quiz_result(category: str, kind: str, question: str, user_answer: str,
+                     correct_answer: str, is_correct: bool, path: Path = DB_PATH) -> None:
+    """Log one answered quiz question."""
+    with open_db(path) as conn:
+        conn.execute(
+            "INSERT INTO quiz_results (date, category, kind, question, user_answer, correct_answer, is_correct) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (today(), category, kind, question, user_answer, correct_answer, int(is_correct)),
+        )
 
 
 # --- Word bank --------------------------------------------------------------
@@ -148,6 +186,29 @@ def record_correct_use(word: str, path: Path = DB_PATH) -> bool:
         )
         row = conn.execute("SELECT times_used_correctly FROM words WHERE word = ?", (word,)).fetchone()
     return row is not None and row[0] == RETIRE_AFTER
+
+
+def queue_quiz(items: list[CheckedItem], path: Path = DB_PATH) -> None:
+    """Store checked quiz items for a future session."""
+    payload = json.dumps([item.model_dump() for item in items])
+    with open_db(path) as conn:
+        conn.execute("INSERT INTO quiz_queue (created, items) VALUES (?, ?)", (today(), payload))
+
+
+def pop_quiz(path: Path = DB_PATH) -> list[CheckedItem] | None:
+    """Remove and return the oldest queued quiz, or None if empty."""
+    with open_db(path) as conn:
+        row = conn.execute("SELECT * FROM quiz_queue ORDER BY id LIMIT 1").fetchone()
+        if row is None:
+            return None
+        conn.execute("DELETE FROM quiz_queue WHERE id = ?", (row["id"],))
+    return [CheckedItem.model_validate(item) for item in json.loads(row["items"])]
+
+
+def quiz_queue_size(path: Path = DB_PATH) -> int:
+    """How many pre-generated quizzes are waiting."""
+    with open_db(path) as conn:
+        return conn.execute("SELECT COUNT(*) FROM quiz_queue").fetchone()[0]
 
 
 # --- Recordings -------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.categories import rule_category
+from app.categories import has_typo, rule_category
 from app.schemas import Correction
 
 
@@ -30,3 +30,14 @@ def test_rule_overrides_model_label():
 def test_model_label_kept_when_rule_unsure():
     c = Correction(original="I go", corrected="I went", category="tense", reason="r")
     assert c.category == "tense"
+
+
+@pytest.mark.parametrize(("correct", "wrong", "typo"), [
+    ("I will finish it by tomorrow.", "I will finish it by tommorow.", True),
+    ("We went to the museum.", "We went to the musem.", True),
+    ("She came to the meeting.", "She come to the meeting.", False),     # real tense mistake
+    ("I need some information.", "I need some informations.", False),    # real learner mistake
+    ("We need more tests.", "We need more test.", False),
+])
+def test_has_typo(correct, wrong, typo):
+    assert has_typo(correct, wrong) is typo

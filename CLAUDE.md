@@ -18,7 +18,8 @@ Agent + app: the app is the UI and session flow; the agent is the tutor, using t
 ## Hard constraints
 - Everything local, no paid APIs, zero cost. MacBook Air M5, 24GB RAM, macOS.
 - LLM: Ollama. Two config values: `llm.models.generate` (`qwen2.5:7b`, content) and `llm.models.feedback` (`qwen2.5:14b`, corrections). Call `ask_json(..., task="generate"|"feedback")`. `keep_alive` keeps models loaded; on 24GB only one fits at a time, so they swap (~6s for 14b), and `warm_up_in_background()` hides that.
-- Reading texts are pre-generated at the end of each session (`reading_queue` table) so the next session starts instantly.
+- Reading texts and quizzes are pre-generated for the next session (`reading_queue`, `quiz_queue`) so it starts instantly.
+- Quiz design: the 7b drafts (correct, wrong, wrong2) sentence sets, the 14b verifies them, and code builds the questions + keys. Never let the LLM write answer keys directly.
 - STT: faster-whisper (`base.en`/`small`, configurable). TTS: Piper/Kokoro, or macOS `say` for v1.
 - Storage: SQLite via stdlib `sqlite3`. UI: CLI first, then Streamlit.
 - Python 3.12 in `.venv` (system 3.15 is too new for some wheels). Dependencies in `requirements.txt`.
@@ -64,6 +65,8 @@ Runs with one command and no errors. LLM output validated and bad JSON handled g
 - `python -m app.main speak`: speaking drill (mic → faster-whisper → feedback)
 - `python -m app.main mistakes [--days 7]`: top mistake categories with examples
 - `python -m app.main add-word "phrase" [--example "..."]` / `words [--all]`: word bank
-- `pytest -q`: unit tests (Ollama mocked)
+- `python -m app.main quiz`: 5-question grammar quiz (starts instantly from `quiz_queue`; prepares the next one in a background process, log in `data/logs/`)
+- `python -m app.main prepare-quiz`: fill the quiz queue manually
+- `pytest -q`: unit tests (Ollama mocked; `tests/conftest.py` forces a temp DB and blocks subprocesses)
 - `pytest -m llm -v`: slow tests against the real model (category labels, ~2 min)
 - `TENAGARI_DB=/path/to/test.db`: use a throwaway database (keeps the real log clean)

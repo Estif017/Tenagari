@@ -6,7 +6,7 @@ import sys
 from app.db import RETIRE_AFTER, latest_mistake, list_words, top_mistake_categories
 from app.llm import LLMError, ask_json, model_for
 from app.schemas import HelloResponse
-from app.sessions import reading_writing, speaking
+from app.sessions import quiz, reading_writing, speaking
 from app.word_bank import add_with_example
 
 
@@ -68,6 +68,8 @@ COMMANDS = {
     "hello": cmd_hello,
     "read": lambda args: reading_writing.run(),
     "speak": lambda args: speaking.run(),
+    "quiz": lambda args: quiz.run(),
+    "prepare-quiz": lambda args: quiz.prepare_next_quiz(),
     "mistakes": cmd_mistakes,
     "add-word": cmd_add_word,
     "words": cmd_words,
@@ -80,6 +82,8 @@ def main() -> None:
     sub.add_parser("hello", help="test the LLM connection with a JSON call")
     sub.add_parser("read", help="reading + writing drill")
     sub.add_parser("speak", help="speaking drill (uses the mic)")
+    sub.add_parser("quiz", help="5-question grammar quiz on your top mistake types")
+    sub.add_parser("prepare-quiz", help="pre-generate the next quiz (runs automatically after a quiz)")
     p = sub.add_parser("mistakes", help="top mistake categories")
     p.add_argument("--days", type=int, default=7)
     p = sub.add_parser("add-word", help='add a word or phrase: add-word "come up with"')
@@ -94,7 +98,7 @@ def main() -> None:
     except LLMError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):  # Ctrl+C, or Ctrl+D / end of piped input
         print("\nStopped. See you next time!")
 
 
