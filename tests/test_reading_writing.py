@@ -29,3 +29,24 @@ def test_save_mistakes_writes_rows(tmp_path):
 
     rows = sqlite3.connect(db).execute("SELECT category, source FROM mistakes").fetchall()
     assert rows == [("article", "reading_writing"), ("tense", "reading_writing")]
+
+
+def test_reading_queue_round_trip(tmp_path):
+    from app.db import pop_reading, queue_reading, reading_queue_size
+    from app.schemas import ReadingText
+
+    db = tmp_path / "test.db"
+    passage = ReadingText(title="T", text="word " * 250)
+    assert pop_reading(path=db) is None
+    queue_reading("football", passage, path=db)
+    assert reading_queue_size(path=db) == 1
+
+    topic, popped = pop_reading(path=db)
+    assert topic == "football" and popped.title == "T"
+    assert reading_queue_size(path=db) == 0
+
+
+def test_pick_topic_excludes_today():
+    from app.topics import pick_topic
+
+    assert all(pick_topic(exclude="football") != "football" for _ in range(50))

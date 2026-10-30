@@ -1,7 +1,10 @@
 # Tenagari configuration. Edit freely; no code changes needed.
 
 llm:
-  model: qwen2.5:7b        # switch to qwen2.5:14b for better quality (slower)
+  models:
+    generate: qwen2.5:7b   # fast: reading texts, questions, quiz items
+    feedback: qwen2.5:14b  # accurate: corrections and scoring
+  keep_alive: 30m          # keep models in memory between calls (Ollama default is 5m)
   temperature: 0.3
   max_retries: 1           # extra attempts after invalid JSON
 

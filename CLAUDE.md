@@ -17,7 +17,8 @@ Agent + app: the app is the UI and session flow; the agent is the tutor, using t
 
 ## Hard constraints
 - Everything local, no paid APIs, zero cost. MacBook Air M5, 24GB RAM, macOS.
-- LLM: Ollama, default `qwen2.5:7b` (config value; can switch to `qwen2.5:14b`).
+- LLM: Ollama. Two config values: `llm.models.generate` (`qwen2.5:7b`, content) and `llm.models.feedback` (`qwen2.5:14b`, corrections). Call `ask_json(..., task="generate"|"feedback")`. `keep_alive` keeps models loaded; on 24GB only one fits at a time, so they swap (~6s for 14b), and `warm_up_in_background()` hides that.
+- Reading texts are pre-generated at the end of each session (`reading_queue` table) so the next session starts instantly.
 - STT: faster-whisper (`base.en`/`small`, configurable). TTS: Piper/Kokoro, or macOS `say` for v1.
 - Storage: SQLite via stdlib `sqlite3`. UI: CLI first, then Streamlit.
 - Python 3.12 in `.venv` (system 3.15 is too new for some wheels). Dependencies in `requirements.txt`.

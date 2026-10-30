@@ -3,21 +3,22 @@
 import argparse
 import sys
 
-from app.config import load_config
-from app.llm import LLMError, ask_json
+from app.llm import LLMError, ask_json, model_for
 from app.schemas import HelloResponse
 from app.sessions import reading_writing
 
 
 def cmd_hello() -> None:
     """Smoke test: one structured JSON call to the local model."""
-    print(f"Asking {load_config()['llm']['model']}...")
-    result = ask_json(
-        "Greet an English learner in one short friendly sentence. "
-        'Return JSON with "greeting" and "language" (the language of the greeting).',
-        HelloResponse,
-    )
-    print(result)
+    for task in ("generate", "feedback"):
+        print(f"[{task}] asking {model_for(task)}...")
+        result = ask_json(
+            "Greet an English learner in one short friendly sentence. "
+            'Return JSON with "greeting" and "language" (the language of the greeting).',
+            HelloResponse,
+            task=task,
+        )
+        print(f"  {result}")
 
 
 def main() -> None:

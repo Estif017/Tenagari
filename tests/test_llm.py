@@ -41,3 +41,14 @@ def test_connection_error_is_friendly():
     with patch("app.llm.ollama.chat", side_effect=ConnectionError):
         with pytest.raises(LLMError, match="Ollama"):
             ask_json("hi", HelloResponse)
+
+
+def test_task_picks_model_and_sends_keep_alive():
+    with patch("app.llm.ollama.chat", return_value=fake_reply(GOOD)) as chat, \
+         patch("app.llm.load_config", return_value={"llm": {
+             "models": {"generate": "small-model", "feedback": "big-model"}, "keep_alive": "30m"}}):
+        ask_json("hi", HelloResponse, task="generate")
+        ask_json("hi", HelloResponse, task="feedback")
+    models = [call.kwargs["model"] for call in chat.call_args_list]
+    assert models == ["small-model", "big-model"]
+    assert chat.call_args.kwargs["keep_alive"] == "30m"

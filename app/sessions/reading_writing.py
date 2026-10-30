@@ -1,7 +1,7 @@
 """Reading + writing drill: read a text, hide it, summarize it, get feedback."""
 
-from app.db import save_mistakes
-from app.llm import ask_json
+from app.db import pop_reading, queue_reading, reading_queue_size, save_mistakes
+from app.llm import ask_json, warm_up_in_background
 from app.prompts import TUTOR_SYSTEM
 from app.schemas import ReadingText, WritingFeedback
 from app.topics import pick_topic
@@ -18,7 +18,7 @@ def generate_text(topic: str) -> ReadingText:
         "It must have one clear main idea. "
         'Return JSON with "title" and "text" (paragraphs separated by blank lines).'
     )
-    return ask_json(prompt, ReadingText, temperature=0.8)
+    return ask_json(prompt, ReadingText, temperature=0.8, task="generate")
 
 
 def get_feedback(passage: ReadingText, summary: str) -> WritingFeedback:
@@ -33,7 +33,7 @@ def get_feedback(passage: ReadingText, summary: str) -> WritingFeedback:
         "3. better_phrases: 2-3 natural phrases he could have used.\n"
         "4. encouragement: one or two warm, specific sentences."
     )
-    return ask_json(prompt, WritingFeedback, system=TUTOR_SYSTEM)
+    return ask_json(prompt, WritingFeedback, system=TUTOR_SYSTEM, task="feedback")
 
 
 def read_multiline(prompt: str) -> str:
@@ -68,25 +68,46 @@ def show_feedback(fb: WritingFeedback) -> None:
     print(f"\n{fb.encouragement}")
 
 
-def run() -> None:
-    """Run one reading + writing drill end to end."""
+def get_todays_text() -> tuple[str, ReadingText]:
+    """Use a pre-generated text if one is queued; otherwise generate one now."""
+    queued = pop_reading()
+    if queued:
+        print(f"Today's topic: {queued[0]} (prepared yesterday)\n")
+        return queued
     topic = pick_topic()
     print(f"Today's topic: {topic}\nGenerating a text...\n")
-    passage = generate_text(topic)
+    return topic, generate_text(topic)
+
+
+def prepare_next_text(today_topic: str) -> None:
+    """Pre-generate the next session's text (different topic) if the queue is empty."""
+    if reading_queue_size() > 0:
+        return
+    topic = pick_topic(exclude=today_topic)
+    print("\nPreparing tomorrow's text so your next session starts instantly...")
+    queue_reading(topic, generate_text(topic))
+    print(f"Ready. Tomorrow's topic: {topic}")
+
+
+def run() -> None:
+    """Run one reading + writing drill end to end."""
+    topic, passage = get_todays_text()
+    warm_up_in_background("feedback")  # load the feedback model while you read
 
     print(f"=== {passage.title} ===\n\n{passage.text}\n")
     input("Read it carefully. Press Enter to hide the text...")
     print(CLEAR_SCREEN, end="")
 
     summary = read_multiline("Write the main idea in your own words (press Enter on an empty line to finish):")
-    if not summary:
+    if summary:
+        print("\nChecking your writing...")
+        feedback = get_feedback(passage, summary)
+        show_feedback(feedback)
+
+        saved = save_mistakes(feedback.corrections, source="reading_writing")
+        if saved:
+            print(f"\n({saved} mistake(s) saved to your log.)")
+    else:
         print("No summary written. Skipping feedback.")
-        return
 
-    print("\nChecking your writing...")
-    feedback = get_feedback(passage, summary)
-    show_feedback(feedback)
-
-    saved = save_mistakes(feedback.corrections, source="reading_writing")
-    if saved:
-        print(f"\n({saved} mistake(s) saved to your log.)")
+    prepare_next_text(today_topic=topic)
