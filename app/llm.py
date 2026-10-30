@@ -14,13 +14,18 @@ class LLMError(Exception):
     """Raised when the LLM is unreachable or keeps returning invalid JSON."""
 
 
-def ask_json(prompt: str, schema: type[T], system: str | None = None) -> T:
+def ask_json(
+    prompt: str, schema: type[T], system: str | None = None, temperature: float | None = None
+) -> T:
     """Ask the local model for JSON matching `schema` and return a validated object.
 
     Ollama's `format` option constrains the output to the schema. If the reply
     still fails validation, we retry with the error message added to the prompt.
+    Pass a higher `temperature` for creative content, lower for feedback.
     """
     cfg = load_config()["llm"]
+    if temperature is None:
+        temperature = cfg.get("temperature", 0.3)
     messages: list[dict[str, str]] = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -33,7 +38,7 @@ def ask_json(prompt: str, schema: type[T], system: str | None = None) -> T:
                 model=cfg["model"],
                 messages=messages,
                 format=schema.model_json_schema(),
-                options={"temperature": cfg.get("temperature", 0.3)},
+                options={"temperature": temperature},
             )
         except ConnectionError as e:
             raise LLMError("Can't reach Ollama. Is it running? (open the Ollama app)") from e
