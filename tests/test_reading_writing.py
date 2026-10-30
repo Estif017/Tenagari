@@ -7,8 +7,9 @@ from app.schemas import Correction, WritingFeedback
 
 
 def make_correction(category: str = "article") -> dict:
-    return {"original": "I went to store", "corrected": "I went to the store",
-            "category": category, "reason": "Use 'the' for a specific place."}
+    # a fix the diff rule can't classify, so the given category is kept
+    return {"original": "he said me", "corrected": "he told me",
+            "category": category, "reason": "'say' doesn't take a person as object."}
 
 
 def test_unknown_category_becomes_other():

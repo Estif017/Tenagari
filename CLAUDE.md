@@ -65,4 +65,5 @@ Runs with one command and no errors. LLM output validated and bad JSON handled g
 - `python -m app.main mistakes [--days 7]`: top mistake categories with examples
 - `python -m app.main add-word "phrase" [--example "..."]` / `words [--all]`: word bank
 - `pytest -q`: unit tests (Ollama mocked)
+- `pytest -m llm -v`: slow tests against the real model (category labels, ~2 min)
 - `TENAGARI_DB=/path/to/test.db`: use a throwaway database (keeps the real log clean)

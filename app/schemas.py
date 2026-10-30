@@ -2,7 +2,9 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.categories import rule_category
 
 Category = Literal["article", "tense", "word_order", "preposition", "word_choice", "pronunciation", "other"]
 CATEGORIES: tuple[str, ...] = Category.__args__
@@ -49,6 +51,12 @@ class Correction(BaseModel):
         """Map labels the model invents (e.g. 'grammar') to 'other' instead of failing."""
         value = str(value).strip().lower().replace(" ", "_")
         return value if value in CATEGORIES else "other"
+
+    @model_validator(mode="after")
+    def fix_category_from_diff(self) -> "Correction":
+        """Override the model's label when the word diff makes the category certain."""
+        self.category = rule_category(self.original, self.corrected) or self.category
+        return self
 
 
 class Feedback(BaseModel):
