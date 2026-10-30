@@ -4,6 +4,7 @@ from app.db import pop_reading, queue_reading, reading_queue_size, save_mistakes
 from app.llm import ask_json, warm_up_in_background
 from app.prompts import TUTOR_SYSTEM
 from app.schemas import ReadingText, WritingFeedback
+from app.sessions.common import show_feedback
 from app.topics import pick_topic
 
 CLEAR_SCREEN = "\033[2J\033[H"
@@ -49,23 +50,6 @@ def read_multiline(prompt: str) -> str:
             break
         lines.append(line)
     return "\n".join(lines).strip()
-
-
-def show_feedback(fb: WritingFeedback) -> None:
-    """Print feedback cards to the terminal."""
-    print(f"\n=== Feedback ===\nMain idea score: {fb.summary_score}/10\n")
-    if fb.corrections:
-        for i, c in enumerate(fb.corrections, 1):
-            print(f"{i}. You wrote:  {c.original}")
-            print(f"   Better:     {c.corrected}")
-            print(f"   Why:        {c.reason}  [{c.category}]\n")
-    else:
-        print("No corrections. Your English was clean!\n")
-    if fb.better_phrases:
-        print("Phrases to try:")
-        for p in fb.better_phrases:
-            print(f"  - {p}")
-    print(f"\n{fb.encouragement}")
 
 
 def get_todays_text() -> tuple[str, ReadingText]:

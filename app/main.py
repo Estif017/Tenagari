@@ -5,7 +5,7 @@ import sys
 
 from app.llm import LLMError, ask_json, model_for
 from app.schemas import HelloResponse
-from app.sessions import reading_writing
+from app.sessions import reading_writing, speaking
 
 
 def cmd_hello() -> None:
@@ -26,6 +26,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("hello", help="test the LLM connection with a JSON call")
     sub.add_parser("read", help="reading + writing drill")
+    sub.add_parser("speak", help="speaking drill (uses the mic)")
     args = parser.parse_args()
 
     try:
@@ -33,6 +34,8 @@ def main() -> None:
             cmd_hello()
         elif args.command == "read":
             reading_writing.run()
+        elif args.command == "speak":
+            speaking.run()
     except LLMError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

@@ -51,10 +51,9 @@ class Correction(BaseModel):
         return value if value in CATEGORIES else "other"
 
 
-class WritingFeedback(BaseModel):
-    """Tutor feedback on a written summary."""
+class Feedback(BaseModel):
+    """Tutor feedback on something the learner wrote or said."""
 
-    summary_score: int = Field(ge=0, le=10, description="How well the summary captures the main idea, 0-10")
     corrections: list[Correction] = Field(default_factory=list, description="At most 3, most important first")
     better_phrases: list[str] = Field(default_factory=list, description="Natural phrases the learner could use")
     encouragement: str
@@ -64,3 +63,16 @@ class WritingFeedback(BaseModel):
     def keep_top_three(cls, value: list[Correction]) -> list[Correction]:
         """Never overwhelm the learner: keep only the first 3 corrections."""
         return value[:MAX_CORRECTIONS]
+
+
+class WritingFeedback(Feedback):
+    """Feedback on a written summary, plus how well it captured the main idea."""
+
+    summary_score: int = Field(ge=0, le=10, description="How well the summary captures the main idea, 0-10")
+
+
+class SpeakingQuestion(BaseModel):
+    """A daily speaking prompt."""
+
+    question: str
+    starter_phrase: str = Field(description="A natural time-buying phrase to start the answer")

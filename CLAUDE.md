@@ -59,5 +59,7 @@ Runs with one command and no errors. LLM output validated and bad JSON handled g
 
 ## Commands
 - `source .venv/bin/activate`
-- `python -m app.main hello`: LLM smoke test
+- `python -m app.main hello`: LLM smoke test (both models)
+- `python -m app.main read`: reading + writing drill
+- `python -m app.main speak`: speaking drill (mic → faster-whisper → feedback)
 - `pytest -q`: unit tests (Ollama mocked)

@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS mistakes (
     explanation TEXT
 );
 
+CREATE TABLE IF NOT EXISTS recordings (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    path TEXT NOT NULL,
+    kind TEXT NOT NULL  -- placement, daily, final
+);
+
 -- Reading texts generated ahead of time so a session starts instantly.
 CREATE TABLE IF NOT EXISTS reading_queue (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +63,19 @@ def save_mistakes(corrections: list[Correction], source: str, path: Path = DB_PA
     finally:
         conn.close()
     return len(rows)
+
+
+def save_recording(file: Path, kind: str = "daily", path: Path = DB_PATH) -> None:
+    """Log a saved audio file so we can play it back later (e.g. Day 1 vs today)."""
+    conn = connect(path)
+    try:
+        with conn:
+            conn.execute(
+                "INSERT INTO recordings (date, path, kind) VALUES (?, ?, ?)",
+                (date.today().isoformat(), str(file), kind),
+            )
+    finally:
+        conn.close()
 
 
 def queue_reading(topic: str, passage: ReadingText, path: Path = DB_PATH) -> None:
