@@ -2,14 +2,15 @@
 
 from datetime import date
 
-from app.db import save_mistakes, save_recording
+from app.db import practice_words, record_correct_use, save_mistakes, save_recording
 from app.llm import ask_json, warm_up_in_background
-from app.prompts import TUTOR_SYSTEM
+from app.prompts import tutor_system
 from app.recorder import new_recording_path, record_until_enter
-from app.schemas import Feedback, SpeakingQuestion
+from app.schemas import SpeakingFeedback, SpeakingQuestion
 from app.sessions.common import show_feedback
 from app.stt import transcribe
 from app.topics import pick_topic
+from app.word_bank import find_used_words, word_pattern
 
 THEMES = {
     "everyday": "a question about his daily life, habits, or opinions on ordinary things",
@@ -39,8 +40,13 @@ def generate_question(theme: str, topic: str) -> SpeakingQuestion:
     return ask_json(prompt, SpeakingQuestion, temperature=0.9, task="generate")
 
 
-def get_feedback(question: str, transcript: str) -> Feedback:
-    """Ask the tutor to correct the spoken answer (from its transcript)."""
+def get_feedback(question: str, transcript: str, used_words: list[str]) -> SpeakingFeedback:
+    """Ask the tutor to correct the spoken answer and check any word-bank words he used."""
+    word_check = (
+        f"4. word_usage: he tried to use these new words: {', '.join(used_words)}. "
+        "For each, say if he used it correctly (meaning and grammar) with a short note.\n"
+        if used_words else "4. word_usage: return an empty list.\n"
+    )
     prompt = (
         f"Question: {question}\n\n"
         f"Transcript of his spoken answer (from speech recognition):\n\"\"\"\n{transcript}\n\"\"\"\n\n"
@@ -49,9 +55,28 @@ def get_feedback(question: str, transcript: str) -> Feedback:
         "1. corrections: up to 3 real English mistakes (grammar, articles, tenses, word order, "
         "prepositions, word choice). Do not use the pronunciation category.\n"
         "2. better_phrases: 2-3 natural phrases a native speaker would use to answer this question.\n"
-        "3. encouragement: one or two warm, specific sentences about what he did well."
+        "3. encouragement: one or two warm, specific sentences about what he did well.\n"
+        + word_check
     )
-    return ask_json(prompt, Feedback, system=TUTOR_SYSTEM, task="feedback")
+    return ask_json(prompt, SpeakingFeedback, system=tutor_system(), task="feedback")
+
+
+def update_word_bank(feedback: SpeakingFeedback, used_words: list[str]) -> None:
+    """Count correct uses (only for words really found in the transcript) and show results."""
+    verdicts = {w.word.lower(): w for w in feedback.word_usage}
+    for word in used_words:
+        verdict = verdicts.get(word.lower())
+        if verdict is None:
+            continue
+        # The model sometimes approves a word it also corrected; the correction wins.
+        corrected = next((c for c in feedback.corrections if word_pattern(word).search(c.original)), None)
+        if corrected:
+            print(f'  🔁 {word}: close! Say "{corrected.corrected}" (see correction above).')
+        elif verdict.used_correctly:
+            learned = record_correct_use(word)
+            print(f"  ✅ {word}: {verdict.note}" + ("  🎓 Learned! Retired from your bank." if learned else ""))
+        else:
+            print(f"  🔁 {word}: {verdict.note}")
 
 
 def run() -> None:
@@ -59,8 +84,11 @@ def run() -> None:
     theme = theme_for(date.today())
     print(f"Today's speaking theme: {theme}\nThinking of a question...\n")
     q = generate_question(theme, pick_topic())
+    targets = [w["word"] for w in practice_words(2)]
 
     print(f"❓ {q.question}\n")
+    if targets:
+        print(f"Try to use: {', '.join(targets)}")
     print(f'Tip: no rush. Start with "{q.starter_phrase}" and speak slowly.')
     print("Mistakes are fine. Keep going, and feedback comes only after you finish.\n")
     input("Press Enter to start recording...")
@@ -77,8 +105,16 @@ def run() -> None:
         return
 
     print(f'\nWhat I heard:\n"{transcript}"\n\nChecking your English...')
-    feedback = get_feedback(q.question, transcript)
+    used = find_used_words(transcript, targets)
+    feedback = get_feedback(q.question, transcript, used)
     show_feedback(feedback)
+
+    if targets:
+        print("\nWord bank:")
+        update_word_bank(feedback, used)
+        for word in targets:
+            if word not in used:
+                print(f"  ⏭  {word}: not used this time. Try it next time!")
 
     saved = save_mistakes(feedback.corrections, source="speaking")
     if saved:

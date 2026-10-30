@@ -62,4 +62,7 @@ Runs with one command and no errors. LLM output validated and bad JSON handled g
 - `python -m app.main hello`: LLM smoke test (both models)
 - `python -m app.main read`: reading + writing drill
 - `python -m app.main speak`: speaking drill (mic → faster-whisper → feedback)
+- `python -m app.main mistakes [--days 7]`: top mistake categories with examples
+- `python -m app.main add-word "phrase" [--example "..."]` / `words [--all]`: word bank
 - `pytest -q`: unit tests (Ollama mocked)
+- `TENAGARI_DB=/path/to/test.db`: use a throwaway database (keeps the real log clean)

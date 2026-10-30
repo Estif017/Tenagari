@@ -2,7 +2,7 @@
 
 from app.db import pop_reading, queue_reading, reading_queue_size, save_mistakes
 from app.llm import ask_json, warm_up_in_background
-from app.prompts import TUTOR_SYSTEM
+from app.prompts import tutor_system
 from app.schemas import ReadingText, WritingFeedback
 from app.sessions.common import show_feedback
 from app.topics import pick_topic
@@ -34,7 +34,7 @@ def get_feedback(passage: ReadingText, summary: str) -> WritingFeedback:
         "3. better_phrases: 2-3 natural phrases he could have used.\n"
         "4. encouragement: one or two warm, specific sentences."
     )
-    return ask_json(prompt, WritingFeedback, system=TUTOR_SYSTEM, task="feedback")
+    return ask_json(prompt, WritingFeedback, system=tutor_system(), task="feedback")
 
 
 def read_multiline(prompt: str) -> str:

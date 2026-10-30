@@ -76,3 +76,24 @@ class SpeakingQuestion(BaseModel):
 
     question: str
     starter_phrase: str = Field(description="A natural time-buying phrase to start the answer")
+
+
+class WordUse(BaseModel):
+    """Whether a word-bank entry was used correctly in an answer."""
+
+    word: str
+    used_correctly: bool
+    note: str = Field(description="One short sentence: why it was right, or how to use it better")
+
+
+class SpeakingFeedback(Feedback):
+    """Feedback on a spoken answer, plus checks on the word-bank words he tried."""
+
+    word_usage: list[WordUse] = Field(default_factory=list)
+
+
+class WordInfo(BaseModel):
+    """Meaning and example for a new word-bank entry."""
+
+    meaning: str
+    example: str
